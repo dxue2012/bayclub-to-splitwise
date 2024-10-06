@@ -1,7 +1,7 @@
 A few python scripts that automatically convert billing statements from [Bay
 Club](https://www.bayclubs.com/) into [SplitWise](https://www.splitwise.com/) Expenses.
 
-## Problem Statement
+## What are we trying to solve?
 
 You're in a friend group with a group membership at Bay Club. One of you are the account
 holder who receives the monthly statement and pays the bills. At the end of each month,
@@ -19,8 +19,8 @@ sometimes putting multiple members (or none) on the line
 
 The script here
 
-1. Uses openai's API to ask GPT to convert the statement PDF into a JSON.
-2. The script then converts each line into a SplitWise expense and uploads it to a
+1. First uses openai's API to ask GPT to convert the statement PDF into a JSON.
+2. Then converts each line into a SplitWise expense and uploads it to a
 SplitWise group, using the SplitWise API, for potentially more manual processing.
 
 There are some auxiliary scripts that help with the process, e.g. for getting the initial
