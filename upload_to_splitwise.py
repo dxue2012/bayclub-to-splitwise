@@ -1,7 +1,9 @@
 import argparse
 import json
-import pprint
 import sys
+
+import pandas as pd
+import pandas.api.types as ptypes
 
 from bayclub_statement_parser import Bayclub_statement_parser
 from splitwise_client import Splitwise_client
@@ -13,7 +15,8 @@ def parse_args():
     )
 
     # Two positional arguments for file paths
-    parser.add_argument("--config", type=str, help="The path to the config JSON.")
+    parser.add_argument("--config", type=str,
+                        help="The path to the config JSON.")
     parser.add_argument(
         "--statement-pdf", type=str, help="The path to the statement PDF."
     )
@@ -38,19 +41,21 @@ def process_statement(statement, group_id, payer_name, name_to_id):
         raise Exception(f"Error: Payer '{payer_name}' not found in the group!")
 
     statement.columns = statement.columns.str.lower()
+    if not ptypes.is_numeric_dtype(statement['amount']):
+        statement['amount'] = pd.to_numeric(statement['amount'].str.replace(',', ''))
 
     # Loop through each row and process the data
     for _, row in statement.iterrows():
-        date = row.date  # Assuming the date is in the first column
-        cost = row.amount  # Assuming cost is in the second column
-        description = row.description  # Assuming description is in the third column
-        member = row.assigned_member  # Assuming member is in the fourth column
-        reason = row.reason  # Assuming the member assignment rationale is 5th
+        date = row.date  
+        cost = row.amount  
+        description = row.description  
+        member = row.assigned_member  
+        reason = row.reason  
 
         details = reason
 
         # Skip rows where the cost is negative
-        if cost < 0:
+        if cost <= 0:
             continue
 
         # Parse the date into the required YYYY-MM-DD format
@@ -64,7 +69,8 @@ def process_statement(statement, group_id, payer_name, name_to_id):
 
         if member == "All":
             # Split equally among all members (except "Unknown")
-            actual_members = {k: v for k, v in name_to_id.items() if k != "Unknown"}
+            actual_members = {k: v for k,
+                              v in name_to_id.items() if k != "Unknown"}
             num_members = len(actual_members)
 
             # Calculate each member's share, rounded to 2 decimals
@@ -80,7 +86,8 @@ def process_statement(statement, group_id, payer_name, name_to_id):
             # Assign shares (Payer pays, everyone owes equally)
             for member_name, member_id in actual_members.items():
                 paid = cost if member_name == payer_name else 0
-                user_shares[member_id] = {"paid": paid, "owed": owed_amount_per_member}
+                user_shares[member_id] = {
+                    "paid": paid, "owed": owed_amount_per_member}
 
         else:
             # Regular case with known members
@@ -93,7 +100,8 @@ def process_statement(statement, group_id, payer_name, name_to_id):
                 continue
 
             user_shares = {
-                payer_user_id: {"paid": cost, "owed": 0},  # Payer pays the full amount
+                # Payer pays the full amount
+                payer_user_id: {"paid": cost, "owed": 0},
                 other_member_id: {
                     "paid": 0,
                     "owed": cost,
@@ -139,9 +147,10 @@ if __name__ == "__main__":
     print(parsed_statement)
 
     # Process the CSV and add expenses
-    expenses = process_statement(parsed_statement, group_id, payer_name, name_to_id)
+    expenses = list(process_statement(
+        parsed_statement, group_id, payer_name, name_to_id))
 
-    pprint.pprint(list(expenses))
+    print(expenses)
 
     if args.upload_to_splitwise:
         print("Uploading expenses to splitwise...")
