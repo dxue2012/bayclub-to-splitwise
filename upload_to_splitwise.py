@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import pprint
-import sys
 
 import pandas as pd
 import pandas.api.types as ptypes
@@ -10,8 +9,9 @@ import pandas.api.types as ptypes
 from bayclub_statement_parser import Bayclub_statement_parser
 from splitwise_client import Splitwise_client
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 UNKNOWN_MEMBER_KEY = "Unknown"
 ALL_MEMBERS_KEY = "All"
@@ -23,10 +23,14 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Two positional arguments for file paths
-    parser.add_argument("--config", type=str,
-                        required=True, help="The path to the config JSON.")
     parser.add_argument(
-        "--statement-pdf", type=str, required=True, help="The path to the statement PDF."
+        "--config", type=str, required=True, help="The path to the config JSON."
+    )
+    parser.add_argument(
+        "--statement-pdf",
+        type=str,
+        required=True,
+        help="The path to the statement PDF.",
     )
 
     # Optional boolean flag (by default False, True if present)
@@ -39,20 +43,22 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def process_statement(statement: pd.DataFrame, group_id: str, payer_name: str, name_to_id: dict) -> list:
+def process_statement(
+    statement: pd.DataFrame, group_id: str, payer_name: str, name_to_id: dict
+) -> list:
     """Process the statement and add expenses using Splitwise user IDs."""
 
     # Get the payer's user ID from the group member mapping
     payer_user_id = name_to_id.get(payer_name)
 
     if not payer_user_id:
-        raise ValueError(
-            f"Error: Payer '{payer_name}' not found in the group!")
+        raise ValueError(f"Error: Payer '{payer_name}' not found in the group!")
 
     statement.columns = statement.columns.str.lower()
-    if not ptypes.is_numeric_dtype(statement['amount']):
-        statement['amount'] = pd.to_numeric(
-            statement['amount'].str.replace(',', ''), errors='coerce')
+    if not ptypes.is_numeric_dtype(statement["amount"]):
+        statement["amount"] = pd.to_numeric(
+            statement["amount"].str.replace(",", ""), errors="coerce"
+        )
 
     # Loop through each row and process the data
     expenses = []
@@ -82,7 +88,8 @@ def process_statement(statement: pd.DataFrame, group_id: str, payer_name: str, n
         if member == ALL_MEMBERS_KEY:
             # Split equally among all members (except "Unknown")
             actual_members = {
-                k: v for k, v in name_to_id.items() if k != UNKNOWN_MEMBER_KEY}
+                k: v for k, v in name_to_id.items() if k != UNKNOWN_MEMBER_KEY
+            }
             num_members = len(actual_members)
 
             # Calculate each member's share, rounded to 2 decimals
@@ -98,8 +105,7 @@ def process_statement(statement: pd.DataFrame, group_id: str, payer_name: str, n
             # Assign shares (Payer pays, everyone owes equally)
             for member_name, member_id in actual_members.items():
                 paid = cost if member_name == payer_name else 0
-                user_shares[member_id] = {
-                    "paid": paid, "owed": owed_amount_per_member}
+                user_shares[member_id] = {"paid": paid, "owed": owed_amount_per_member}
 
         else:
             # Regular case with known members
@@ -120,8 +126,7 @@ def process_statement(statement: pd.DataFrame, group_id: str, payer_name: str, n
                 },  # Other member owes the full cost
             }
 
-        expenses.append((cost, description, date_str,
-                        group_id, user_shares, details))
+        expenses.append((cost, description, date_str, group_id, user_shares, details))
 
     return expenses
 
@@ -151,8 +156,7 @@ if __name__ == "__main__":
     name_to_id = splitwise_client.get_group_members(group_id)
     if "Unknown None" in name_to_id:
         name_to_id[UNKNOWN_MEMBER_KEY] = name_to_id.pop("Unknown None")
-    actual_members = [x for x in list(
-        name_to_id.keys()) if x != UNKNOWN_MEMBER_KEY]
+    actual_members = [x for x in list(name_to_id.keys()) if x != UNKNOWN_MEMBER_KEY]
 
     # Upload file and create assistant
     statement_parser = Bayclub_statement_parser(members=actual_members)
@@ -162,8 +166,7 @@ if __name__ == "__main__":
     print(parsed_statement)
 
     # Process the CSV and add expenses
-    expenses = process_statement(
-        parsed_statement, group_id, payer_name, name_to_id)
+    expenses = process_statement(parsed_statement, group_id, payer_name, name_to_id)
 
     pprint.pprint(expenses)
 

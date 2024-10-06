@@ -34,7 +34,7 @@ class MissingOutputError(Exception):
 
 class AmbiguousOutputError(Exception):
     def __init__(self, outputs):
-        output = '\n'.join(outputs)
+        output = "\n".join(outputs)
         self.message = f"Got outputs {output}"
         super().__init__(self.message)
 
@@ -101,7 +101,7 @@ class Bayclub_statement_parser:
             self.client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
         )
 
-        message_content = messages[0].content[0].text
+        message_content = messages[0].content[0].text  # type: ignore
         annotations = message_content.annotations
         output_files = []
 
