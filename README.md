@@ -1,4 +1,4 @@
-![Bay Club to Splitwise icon](icon.png)
+![Bay Club to Splitwise icon](./icon.png)
 
 A few python scripts that automatically convert billing statements from [Bay
 Club](https://www.bayclubs.com/) into [Splitwise](https://www.splitwise.com/) Expenses.
