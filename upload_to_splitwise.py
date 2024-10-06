@@ -1,7 +1,8 @@
 import argparse
 import json
-import sys
 import logging
+import pprint
+import sys
 
 import pandas as pd
 import pandas.api.types as ptypes
@@ -12,17 +13,20 @@ from splitwise_client import Splitwise_client
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+UNKNOWN_MEMBER_KEY = "Unknown"
+ALL_MEMBERS_KEY = "All"
 
-def parse_args():
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse a bayclub statement and upload charges to splitwise"
     )
 
     # Two positional arguments for file paths
     parser.add_argument("--config", type=str,
-                        help="The path to the config JSON.")
+                        required=True, help="The path to the config JSON.")
     parser.add_argument(
-        "--statement-pdf", type=str, help="The path to the statement PDF."
+        "--statement-pdf", type=str, required=True, help="The path to the statement PDF."
     )
 
     # Optional boolean flag (by default False, True if present)
@@ -35,7 +39,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def process_statement(statement, group_id, payer_name, name_to_id):
+def process_statement(statement: pd.DataFrame, group_id: str, payer_name: str, name_to_id: dict) -> list:
     """Process the statement and add expenses using Splitwise user IDs."""
 
     # Get the payer's user ID from the group member mapping
@@ -51,6 +55,7 @@ def process_statement(statement, group_id, payer_name, name_to_id):
             statement['amount'].str.replace(',', ''), errors='coerce')
 
     # Loop through each row and process the data
+    expenses = []
     for _, row in statement.iterrows():
         date = row.date
         cost = row.amount
@@ -68,16 +73,16 @@ def process_statement(statement, group_id, payer_name, name_to_id):
         # Parse the date into the required YYYY-MM-DD format
         try:
             date_str = pd.to_datetime(date).strftime("%Y-%m-%d")
-        except ValueError:
+        except (ValueError, TypeError):
             logging.error(f"Error: Invalid date format for row: {row}")
             continue
 
         user_shares = {}
 
-        if member == "All":
+        if member == ALL_MEMBERS_KEY:
             # Split equally among all members (except "Unknown")
-            actual_members = {k: v for k,
-                              v in name_to_id.items() if k != "Unknown"}
+            actual_members = {
+                k: v for k, v in name_to_id.items() if k != UNKNOWN_MEMBER_KEY}
             num_members = len(actual_members)
 
             # Calculate each member's share, rounded to 2 decimals
@@ -115,7 +120,10 @@ def process_statement(statement, group_id, payer_name, name_to_id):
                 },  # Other member owes the full cost
             }
 
-        yield (cost, description, date_str, group_id, user_shares, details)
+        expenses.append((cost, description, date_str,
+                        group_id, user_shares, details))
+
+    return expenses
 
 
 if __name__ == "__main__":
@@ -142,21 +150,22 @@ if __name__ == "__main__":
     # Fetch the group members and create a name-to-ID mapping
     name_to_id = splitwise_client.get_group_members(group_id)
     if "Unknown None" in name_to_id:
-        name_to_id["Unknown"] = name_to_id.pop("Unknown None")
-    actual_members = [x for x in list(name_to_id.keys()) if x != "Unknown"]
+        name_to_id[UNKNOWN_MEMBER_KEY] = name_to_id.pop("Unknown None")
+    actual_members = [x for x in list(
+        name_to_id.keys()) if x != UNKNOWN_MEMBER_KEY]
 
     # Upload file and create assistant
     statement_parser = Bayclub_statement_parser(members=actual_members)
     parsed_statement = statement_parser.upload_and_parse(args.statement_pdf)
 
     logging.info("Got parsed statement. Thank you GPT <3")
-    logging.info(parsed_statement)
+    print(parsed_statement)
 
     # Process the CSV and add expenses
-    expenses = list(process_statement(
-        parsed_statement, group_id, payer_name, name_to_id))
+    expenses = process_statement(
+        parsed_statement, group_id, payer_name, name_to_id)
 
-    logging.info(expenses)
+    pprint.pprint(expenses)
 
     if args.upload_to_splitwise:
         logging.info("Uploading expenses to splitwise...")

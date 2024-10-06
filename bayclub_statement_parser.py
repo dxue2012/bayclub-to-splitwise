@@ -34,7 +34,8 @@ class MissingOutputError(Exception):
 
 class AmbiguousOutputError(Exception):
     def __init__(self, outputs):
-        self.message = f"Got outputs {'\n'.join(outputs)}"
+        output = '\n'.join(outputs)
+        self.message = f"Got outputs {output}"
         super().__init__(self.message)
 
 
@@ -93,7 +94,7 @@ class Bayclub_statement_parser:
         print("querying GPT. This may take a while...")
 
         run = self.client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, assistant_id=self.assistant.id, poll_interval_ms=100
+            thread_id=thread.id, assistant_id=self.assistant.id, poll_interval_ms=1000
         )
 
         messages = list(
