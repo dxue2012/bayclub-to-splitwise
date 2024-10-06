@@ -38,3 +38,24 @@ A few interesting choices:
 This allows members to manually resolve incorrect assignments in SplitWise with the
 maximum amount of information.
 
+## How to use
+
+### Dependencies
+
+1. Install deps using conda - the environment is captured into `environment.yml`. 
+2. Run `python3 auth.py` to initialize the SplitWise API - store the values in a
+   `secrets.json`.
+3. Make sure you can use oai's APIs - log in to your openai account and follow the steps
+   there (and add a few $ to your account) if you've never used it before.
+
+### Actually running it
+
+```
+python3 upload_to_splitwise.py --statement=PATH_TO_YOUR_STATEMENT_PDF --config=config.json
+```
+
+`config.json` must contain a `payer_name` (the person who pays the Bay Club bills), and a
+SplitWise `group_id`.
+
+By default `upload_to_splitwise.py` does a dry-run; add the flag `--upload-to-splitwise`
+to actually upload to SplitWise.
